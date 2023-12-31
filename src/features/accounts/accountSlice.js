@@ -2,12 +2,17 @@ const initialStateAccont = {
   balance: 0,
   loan: 0,
   loanPurpose: "",
+  isLoading: false,
 };
 
 export default function accountReducer(state = initialStateAccont, action) {
   switch (action.type) {
     case "account/deposit":
-      return { ...state, balance: state.balance + action.payload };
+      return {
+        ...state,
+        balance: state.balance + action.payload,
+        isLoading: false,
+      };
     case "account/withdraw":
       return { ...state, balance: state.balance - action.payload };
     case "account/requestLoan":
@@ -25,13 +30,28 @@ export default function accountReducer(state = initialStateAccont, action) {
         loanPurpose: "",
         balance: state.balance - state.loan,
       };
+
+    case "account/convertingCurrency":
+      return { ...state, isLoading: true };
     default:
       return state;
   }
 }
 
-export function deposit(amount) {
-  return { type: "account/deposit", payload: amount };
+export function deposit(amount, currency) {
+  if (currency === "USD") return { type: "account/deposit", payload: amount };
+  //  return function then redux know it is async action which is executed before store
+  return async function (dispatch, getState) {
+    dispatch({ type: "account/convertingCurrency" });
+    // API call
+    const res = await fetch(
+      `https://api.frankfurter.app/latest?amount=${amount}&from=${currency}&to=USD`
+    );
+    const data = await res.json();
+    const converted = data.rates.USD;
+    // return action
+    dispatch({ type: "account/deposit", payload: converted });
+  };
 }
 export function withdraw(amount) {
   return { type: "account/withdraw", payload: amount };
@@ -39,7 +59,7 @@ export function withdraw(amount) {
 export function requestLoan(amount, purpose) {
   return {
     type: "account/requestLoan",
-    payload: { amount: 1000, purpose: "Buy a car" },
+    payload: { amount: amount, purpose: purpose },
   };
 }
 export function payLoan() {
